@@ -1,0 +1,73 @@
+# Detection fine-tuning configuration
+
+dataset:
+  root: "/jhcnas6/Public/CCS-Cell-Det"  # Path to dataset directory
+  train_ann: "/jhcnas6/Public/CCS-Cell-Det/train.json"
+  val_ann: "/jhcnas6/Public/CCS-Cell-Det/val.json"
+  test_ann: "/jhcnas6/Public/CCS-Cell-Det/test.json"
+  num_classes: 6  # Update based on your dataset
+  max_size: 1333
+  
+model:
+  backbone_name: "dinov3_vit7b16"  # Use vit7b16 to match detection head
+  pretrained_backbone: true  # Now we have matching backbone weights! 
+  backbone_weights: "/jhcnas4/Pathology/code/DINOv3/DINOv3 ViT LVD-1689M/dinov3_vit7b16_pretrain_lvd1689m-a955f4ea.pth"
+  freeze_backbone: true  # Freeze pretrained backbone, only train detection head
+  
+  # Use pretrained COCO detection head - perfect match with vit7b16 8-layer features (8×4096=32768)
+  pretrained_detector: true
+  detector_weights: "/jhcnas4/Pathology/code/DINOv3/DINOv3 Adapters/dinov3_vit7b16_coco_detr_head-b0235ff7.pth"
+  
+  # Detection head config
+  num_queries_one2one: 300
+  num_queries_one2many: 1500
+  hidden_dim: 256
+  nheads: 8
+  dec_layers: 6
+  dim_feedforward: 2048
+  dropout: 0.0
+  
+  # DETR specific
+  with_box_refine: true
+  two_stage: true
+  mixed_selection: true
+  look_forward_twice: true
+  aux_loss: true
+
+training:
+  batch_size: 8
+  num_epochs: 50
+  learning_rate: 1e-4
+  weight_decay: 1e-4
+  lr_scheduler: "cosine"
+  warmup_epochs: 5
+  
+  # Loss weights
+  loss_weights:
+    loss_ce: 1.0
+    loss_bbox: 5.0
+    loss_giou: 2.0
+  
+  # Hungarian matcher costs
+  matcher_costs:
+    cost_class: 1.0
+    cost_bbox: 5.0
+    cost_giou: 2.0
+  
+  # Class weighting
+  eos_coef: 0.1
+
+evaluation:
+  eval_interval: 1  # Evaluate every N epochs
+  save_best_metric: "mAP@0.5:0.95"  # Save checkpoint with best mAP@0.5:0.95
+  metrics: ["mAP@50", "mAP@0.5:0.95"]
+
+logging:
+  log_interval: 50  # Log every N iterations
+  save_dir: "outputs/detection_finetune"
+  experiment_name: "dinov3_detection_ft"
+
+device:
+  gpu_ids: [1]  # GPU IDs to use
+  num_workers: 4
+  pin_memory: true
